@@ -1,5 +1,6 @@
 #include <chalkwalk/physical/BowedExciter.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace chalkwalk::physical {
