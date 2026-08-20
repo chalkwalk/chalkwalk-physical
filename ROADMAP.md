@@ -27,14 +27,15 @@ repository, and is deliberately not a dependency of this one.
 
 The library is seven source files: a waveguide, a modal skeleton, two exciters,
 a geometry stub, a translation matrix and an empty importer. It has one live
-consumer, Anvil, and one file over there does the whole adoption.
+consumer -- an instrument-building application -- and one file over there does
+the whole adoption.
 
 It is about to become the thing that leads. `DESIGN.md` was written today and
 describes a substrate -- ports carrying Norton equivalents, a graph that solves
 for coupling forces, bodies expressed as two continua rather than five
-geometries, ranks, and assemblies that are themselves objects. Anvil's roadmap
-has been edited to hand its object-graph and resonator-vocabulary work here and
-link rather than restate.
+geometries, ranks, and assemblies that are themselves objects. The builder's
+own plan has been edited to hand its object-graph and resonator-vocabulary work
+here rather than restate it.
 
 Next, in order:
 
@@ -42,8 +43,8 @@ Next, in order:
    it, and it is the piece with no partial version -- either coupling is
    bidirectional and solved, or it is not.
 2. **The substrate, behind the golden test.** Reimplement the two existing
-   resonators as objects with the old classes as adapters, so Anvil compiles
-   unchanged and `PluckGoldenTest` says whether anything moved.
+   resonators as objects with the old classes as adapters, so the builder
+   compiles unchanged and its golden test says whether anything moved.
 3. **The tension/stiffness continuum.** The first work that produces sounds the
    library cannot currently make.
 
@@ -108,27 +109,27 @@ and does a triangular solve per sample.
       body is ported onto it. These are the tests that make the rest cheap to
       write.
 
-Nothing consumes this while it is being built. Anvil is untouched.
+Nothing consumes this while it is being built. The builder is untouched.
 
 ### The substrate, behind the golden test
 
-The migration, staged so Anvil never breaks.
+The migration, staged so the builder never breaks.
 
 - [ ] Reimplement `WaveguideResonator` and `ModalResonator` as objects.
 - [ ] Keep the old `Resonator` classes as thin adapters: `renderReplace` builds
-      a two-port graph internally and steps it. Anvil compiles unchanged.
-- [ ] Run Anvil's `PluckGoldenTest` against the adapter. A feature vector
+      a two-port graph internally and steps it. The builder compiles unchanged.
+- [ ] Run the builder's golden test against the adapter. A feature vector
       captured months earlier against the old DSP is the right witness for
       "the rebuild changed nothing" -- it already proved itself once, catching
       the extraction drift by 56% at `rms_block50`.
-- [ ] Anvil switches `src/voice/Physical.h` to the graph API.
+- [ ] The builder switches its one adoption file to the graph API.
 - [ ] Delete the adapters.
 
 ### Demoting the MPE nouns
 
 `setPressure`, `setTimbre` and `setExpressionCurve` are MPE nouns in a base
-class that should not know what a controller is. Lockstep is the consumer that
-proves it: no per-note expression at all.
+class that should not know what a controller is. The sequencer is the consumer
+that proves it: no per-note expression at all.
 
 - [ ] Grow `TranslationMatrix` into what its name promises: gesture in --
       MPE, a sequencer step, a bot's note -- per-object parameter targets out.
@@ -143,7 +144,7 @@ uncoupled object that is strictly slower.
 
 - [ ] **Measure first.** If the modal bank dominates, the per-sample dispatch
       vanishes into the noise and this work area is closed unbuilt.
-- [ ] Anvil asks for CPU within 10% of its pre-graph baseline; that is the
+- [ ] The builder asks for CPU within 10% of its pre-graph baseline; that is the
       number this is judged against.
 
 ---
@@ -245,7 +246,7 @@ type tree.
 
 ### Friction that catches
 
-`DESIGN §5.2`. Anvil's play-testing recorded that the bowed prototype does not
+`DESIGN §5.2`. Play-testing recorded that the bowed prototype does not
 feel intuitive; this is the specific hypothesis.
 
 - [ ] `BowedExciter`'s Newton solve moves into the friction junction.
@@ -257,8 +258,8 @@ feel intuitive; this is the specific hypothesis.
 
 ### Reed, jet and lip
 
-`DESIGN §9`. Three mechanisms, not one "blown exciter". Anvil's roadmap
-previously named one.
+`DESIGN §9`. Three mechanisms, not one "blown exciter". The consumer plan that
+preceded this one named a single blown exciter.
 
 - [ ] **Reed** first: pressure-controlled nonlinear reflection into a `Tube`.
 - [ ] **Jet**: delayed jet drive. Overblowing should arrive on its own; if it
@@ -353,7 +354,7 @@ sampler pitch-shift or unplayable outside a narrow range.
 
 ### Editing while it sounds
 
-`DESIGN §14`. Anvil's *There is no build mode and no play mode*.
+`DESIGN §14`. The builder's *There is no build mode and no play mode*.
 
 - [ ] Off-thread graph construction with handover; the audio thread only steps.
 - [ ] Add a body, move a mic, re-mount a rank, swap a geometry -- no dropout,
@@ -391,33 +392,33 @@ into a slot a modal object vacates.
 
 ## Consumers
 
-### Anvil adopts the graph
+### The builder adopts the graph
 
-Anvil's roadmap owns the adoption; this entry exists so the handoff has one
-name on both sides.
+The builder's own plan owns the adoption; this entry exists so the handoff has
+one name on both sides.
 
-- [ ] Anvil's object/port and coupling work areas are closed as handed here.
+- [ ] Its object/port and coupling work areas are closed as handed here.
 - [ ] `src/voice/Physical.h` moves to the graph API.
 - [ ] The Workbench becomes an assembly editor.
 
-### A Lockstep physical machine
+### A physical machine for the sequencer
 
 The second committed consumer, and the one that keeps the interface honest by
 having no per-note expression at all.
 
-- [ ] A physical machine alongside Lockstep's analog, FM and tone machines.
+- [ ] A physical machine alongside its analog, FM and tone machines.
 - [ ] It consumes assemblies and never sees a port.
 - [ ] Played from sequencer steps: velocity, position, and a small set of
       assembly parameters.
 
-### Antiphon
+### The third application
 
-Not a consumer. `PluckedString` and `ModalBank` remain a recorded divergence,
-and Antiphon's roadmap argues a sampled kit serves its band better than
+Not a consumer. Its plucked-string and modal-bank voices remain a recorded
+divergence, and its own plan argues a sampled kit serves it better than
 modelled percussion. Both positions may change; the interface is not shaped
 around either.
 
-- [ ] Revisit only when Antiphon's soundfont question is settled, and only with
+- [ ] Revisit only when its soundfont question is settled, and only with
       evidence.
 
 ---
@@ -431,8 +432,8 @@ around either.
       tests.
 - [ ] `DESIGN.md` section numbers stay stable. Add sections; do not renumber.
 - [ ] Consumers' own plans record what they now expect from here rather than
-      restating it. Anvil's does; Lockstep's will when its physical machine is
-      scheduled.
+      restating it. The builder's does; the sequencer's will when its physical
+      machine is scheduled.
 
 ### Cross-platform CI
 

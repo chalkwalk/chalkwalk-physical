@@ -37,15 +37,16 @@ pressure that keeps the boundary clean:
 
 | Consumer | What it needs |
 |---|---|
-| **Anvil** | The whole graph. Anvil is an instrument builder; its Workbench authors assemblies and its user reaches every part |
-| **Lockstep** | Fine-tuned assemblies, played from sequencer steps, with no per-note expression layer at all |
-| **Antiphon** | Not yet a consumer -- see §18 |
+| **The builder** | The whole graph. It is an instrument-building application: its workbench authors assemblies and its user reaches every part |
+| **The sequencer** | Fine-tuned assemblies, played from sequencer steps, with no per-note expression layer at all |
+| **A third application** | Not a consumer yet -- see §18 |
 
-Lockstep matters out of proportion to its share of the work: it is the consumer
-that has **no MPE**, and so it is the one that stops MPE-shaped assumptions
-leaking into the interface. They already had: the `Resonator` base this design
-replaces carries `setPressure`, `setTimbre` and `setExpressionCurve`, which are
-MPE nouns in a class that should not know what a controller is.
+The sequencer matters out of proportion to its share of the work: it is the
+consumer with **no per-note expression at all**, and so it is the one that
+stops gesture-shaped assumptions leaking into the interface. They already had:
+the `Resonator` base this design replaces carries `setPressure`, `setTimbre`
+and `setExpressionCurve`, which are MPE nouns in a class that should not know
+what a controller is.
 
 **Strictly JUCE-free.** A file is a host concern; this library must not learn
 what one is. That rule is why mode lists are *generated* rather than loaded
@@ -539,8 +540,9 @@ we wrote down.
 
 ### 11.3 The consumer split
 
-Anvil consumes the graph directly: its Workbench is an assembly editor, and its
-user reaches every part. Lockstep consumes assemblies and never sees a port.
+The builder consumes the graph directly: its workbench is an assembly editor,
+and its user reaches every part. The sequencer consumes assemblies and never
+sees a port.
 
 Same code underneath, which is the point. A fine-tuned special case built on
 the general model cannot drift from it the way two hand-maintained copies of
@@ -617,17 +619,17 @@ Each voice owns a graph instance built from one shared description.
 The graph is editable while it sounds. Adding a body, moving a mic, re-mounting
 a rank -- none of these stops the audio, and none of them clicks.
 
-This is a stance, not a feature, and it belongs to Anvil's `PRINCIPLES.md`
-under *There is no build mode and no play mode*. It is recorded here because it
+This is a stance, not a feature, and the builder states it in its own
+principles as *There is no build mode and no play mode*. It is recorded here because it
 is a **constraint on this library**: off-thread graph construction with
 handover (§13), smooth promotion and demotion in ranks (§10.1), click-free
 retuning under pitch tracking (§3.4), and prepare-time flattening (§11.1) all
 exist so that editing is a performance gesture rather than an interruption.
 
-Lockstep holds the same stance for the sequencer -- there is no design mode
-versus performance mode; the gestures that manipulate pre-authored material are
-the gestures that improvise new material. It is an ecosystem position, not a
-one-off.
+The same stance is held elsewhere in this ecosystem, for a quite different
+instrument -- there is no design mode versus performance mode; the gestures
+that manipulate pre-authored material are the gestures that improvise new
+material. It is an ecosystem position, not a one-off.
 
 ---
 
@@ -675,7 +677,7 @@ written in that spirit.
 Sweeps cover **more than one variable at a time**. Every defect this library
 has recorded was invisible to a suite that swept one.
 
-Anvil's `PluckGoldenTest` is the cross-repository regression oracle for the
+The builder's golden test is the cross-repository regression oracle for the
 migration (`ROADMAP.md`, *The substrate, behind the golden test*). A feature
 vector captured months earlier against the old DSP is a better witness to "the
 rebuild changed nothing" than any test written alongside the rebuild.
@@ -689,15 +691,15 @@ buffer arrives from the plugin, which is the thing that knows what a file is.
 `ModalDataImporter` holds the mode-list type and the seam, and nothing else.
 
 **No named instruments in the engine.** Factory assemblies are recipes, and a
-recipe is data. Anvil's `NON-GOALS.md` fence #2 rejects engine-level instrument
-emulation; this library keeps that possible by making every instrument an
-assembly of parts.
+recipe is data. The builder's standing refusals reject engine-level instrument
+emulation outright; this library keeps that possible by making every instrument
+an assembly of parts.
 
 **No modulation, no effects, no UI.** Movement comes from gesture and physics.
 The space stage is the consumer's; this library provides placed outputs (§12.2)
 and stops.
 
-**Antiphon is not a consumer yet.** It has its own `PluckedString` and
-`ModalBank`, deliberately left as a divergence, and its roadmap argues a
-sampled kit serves its band better than modelled percussion. Both positions may
-change; the interface is not shaped around either.
+**The third application is not a consumer yet.** It has its own plucked-string
+and modal-bank voices, deliberately left as a divergence, and its own plan
+argues a sampled kit serves it better than modelled percussion. Both positions
+may change; the interface is not shaped around either.
