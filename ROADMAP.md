@@ -39,6 +39,10 @@ here rather than restate it.
 
 Next, in order:
 
+0. **Correctness first, and it is done.** The fractional delay and the loop's
+   DC are both closed; the heavy-damping residual turned out not to be a
+   defect at all. All of it changes rendered output, so the builder's golden
+   feature vector needs re-capturing once before the object recast begins.
 1. **The port protocol and the graph solve.** Everything else is downstream of
    it, and it is the piece with no partial version -- either coupling is
    bidirectional and solved, or it is not.
@@ -55,26 +59,111 @@ user interface.
 
 ## Correctness
 
-### Higher-order fractional delay
+### Higher-order fractional delay -- done
 
-Carried over, and the oldest open item here. The first-order Thiran all-pass
-has a phase delay accurate near DC that drifts upward with frequency, so it
-does not delay every partial by the same fraction of a period and the harmonic
-series stretches. At 220 Hz the partials sit within 0.4 cents of harmonic; at
-2489 Hz the eighth is 21.4 cents sharp.
+*(2026-08-20)* The first-order Thiran all-pass is replaced by a **fifth-order
+Lagrange** fractional delay, with the fractional part centred on the delay at
+which a Lagrange interpolator is exactly linear phase.
 
-Characterised in `TuningTests.cpp` by a test that measures partial stretch
-directly and **fails when the defect is fixed**.
+- [x] Replace the first-order Thiran with a higher-order fractional delay.
+- [x] Both characterisation tests failed by design and are deleted, folded
+      into the sweeps they were carved out of.
 
-- [ ] Replace the first-order Thiran with a higher-order fractional delay --
-      Thiran 2-3, or Lagrange. Both are standard and neither is large.
-- [ ] Target: partial stretch under 2 cents through the eighth partial at
-      2489 Hz.
-- [ ] When it lands the characterisation test fails by design; delete it and
-      tighten `low notes have a harmonic series` to cover the whole range.
+Measured over chromatic sweeps at 48 kHz:
 
-This should land **before** the waveguide is recast as an object, so the
-golden-test comparison in the next section is not measuring two changes at once.
+| | before | after |
+|---|---|---|
+| A1-A4, worst tuning error | +5.1 cents at G4 | -0.21 |
+| A5-A7, worst tuning error | -19.3 to +43.0 | +0.89 |
+| Partial stretch, partials below 12 kHz | up to 21.4 | under 1.0 |
+
+Lagrange rather than Thiran 2-3, for two reasons past accuracy: it has no
+state, so the coefficients can be swapped under a ringing note -- and
+`retune()` runs on every pitch, damping and expression change, which is to say
+constantly -- and it cannot go unstable.
+
+**The stated target was not reachable and should not have been stated.** It
+asked for partial stretch under 2 cents through the eighth partial at 2489 Hz;
+that partial is at 19.9 kHz, which at 48 kHz is 0.83 of Nyquist. No practical
+interpolator order gets there -- about 10 cents at order 5, 8 at order 9, 4 at
+order 19, which is twenty taps in a nineteen-sample loop. The residual is not
+a property of the partial but of its distance from Nyquist, and the same
+partial of the same note at 96 kHz is within 0.05 cents. `TuningTests.cpp`
+asserts that rather than describing it, because a limit that moves when the
+sample rate moves is a sample-rate limit.
+
+### DC in the loop -- done
+
+*(2026-08-20)* A real string has no zero-frequency mode. A delay loop with
+feedback gain *g* has one, with a gain of `1/(1-g)` -- a thousand at 0.999 --
+and any drive with an offset charges it up. The bowed exciter's drive is
+almost entirely offset, so a bowed note was a tone riding a ramp.
+
+- [x] DC blocker in the loop, `R = 0.99999`, phase delay cancelled in
+      `retune()` alongside the loop filter's.
+- [x] `R` chosen against the harmonic budget, not by ear: the cancellation is
+      exact only at the fundamental, so the blocker's remaining phase
+      variation across partials is inharmonicity. At `R = 0.9999` that costs
+      1.4 cents on the second partial of a 110 Hz string; at `0.99999` it is
+      0.18, and 0.8 at the 20 Hz bottom of the range.
+
+| | before | after |
+|---|---|---|
+| Bowed note, DC share of energy | 89-93% | 1.3-2.4% |
+| Bowed note, absolute peak | 19.9 / 147 / 189 | 1.6 / 7.5 / 6.9 |
+| Bowed rms over four seconds | 24.6 -> 192.5 | 5.98 -> 4.55 |
+| Plucked note, DC share | 30% | 0.2% |
+
+The bowed peak is still several times nominal. That is a level-scaling
+question in the drive, not a runaway, and it is left for the friction
+coupling to settle.
+
+### The heavy-damping residual is not a tuning error
+
+**Closed as not-a-defect**, and recorded because it cost two wrong
+explanations and someone will find it again.
+
+At A7 with damping 1.0 the fundamental measures 62 cents flat. It was blamed
+first on the first-order Thiran, then on `retune()` cancelling the loop
+filter's phase delay by evaluation rather than by a fixed-point solve. Both
+wrong. Modelling the loop directly puts the phase condition at 3519.996 Hz for
+a nominal 3520 -- the mode is exactly where it was asked to be, and there is
+no fixed point to solve.
+
+What moves is the **peak**, not the mode. At `loopAlpha_` 0.8 a thirteen-sample
+loop has a broad resonance sitting on a steeply falling loop gain, so the
+spectral maximum is dragged below the mode frequency: -25 cents modelled, -62
+measured, the difference being what an FFT peak does to a broad and
+fast-decaying resonance. At A4 the same damping costs 0.10 cents, the loop
+being eight times longer and the resonance eight times narrower.
+
+A damped resonator's peak really does sit below its undamped frequency, so
+part of this is correct physics. The rest is the one-pole being a crude model
+of material damping -- which belongs to the body vocabulary, not to tuning.
+
+- [ ] Revisit only when `Fibre` brings per-mode T60 from material damping.
+      There is nothing to fix in `retune()`.
+
+### The audition bench -- done
+
+*(2026-08-20)* `test/Audition.cpp` renders named scenarios to WAV, built
+alongside the tests and deliberately outside `ctest`. Several acceptance
+criteria on this roadmap are stated as audible claims -- morphing is
+"click-free", placement has a "comb-filter signature", a tom "bends downward",
+a gong "blooms" -- and an ear has to confirm at least once that the numeric
+proxy proxies the right thing.
+
+- [x] `test/Wav.h`, tested by round-trip. `DESIGN §18` keeps files out of the
+      library; the bench is not the library and links it as a consumer would.
+- [x] `test/Spectrum.h`: the FFT and partial readers, lifted out of
+      `TuningTests.cpp` where they were private, and calibrated in
+      `SpectrumTests.cpp` against synthetic signals with a known answer --
+      including a stretched series, so a stretch figure can be believed.
+- [x] Scenarios are deterministic: same build, same bytes, so two of them can
+      be diffed as well as heard.
+- [ ] Grow a scenario alongside each audible acceptance criterion as it lands.
+
+It earned itself on the first run: see *Friction that catches*.
 
 ### Sweeps cover more than one variable
 
@@ -249,6 +338,40 @@ type tree.
 `DESIGN §5.2`. Play-testing recorded that the bowed prototype does not
 feel intuitive; this is the specific hypothesis.
 
+**The bow cannot feel the string, and that is the whole problem.** A real bow
+reaches a steady amplitude within a handful of periods because the friction
+force depends on the relative velocity `v_bow - v_string`: the bow does
+positive work while the string sticks, and the string dissipates against the
+friction while it slips. That negative feedback needs `v_string`.
+
+`BowedExciter::setJunctionVelocity` exists for it and **nothing in the library
+ever calls it**, so `vHat_` is permanently zero and the solver's relative
+velocity contains the bow's own reflection but not the string's motion. It is
+asserted directly in `PassivityTests.cpp`: bowing a 110 Hz string and an 880 Hz
+string produces BIT-IDENTICAL excitation, which cannot be true of a friction
+junction. That test fails when this is fixed.
+
+Not fixable in place: `renderAdd` produces a signal that is *then* injected,
+which is feed-forward, and a friction junction is not a source. It is `§5.2` --
+a root-find on relative velocity inside a **coupling**, reaction applied to
+both sides.
+
+**Do not wire `setJunctionVelocity` from the resonator as an interim.** It is
+block-delayed, and at A3 one period is 218 samples against a 64-sample block,
+so the feedback is a third of a period stale -- enough to stop a runaway,
+nowhere near enough for stick-slip, and it builds a cross-object feedback path
+the graph deletes.
+
+A second finding, and probably part of what "does not feel intuitive" was
+reporting: in Rate mode bow velocity comes from `|dFn/dt|`, so **steady
+pressure is not a bow stroke at all** and a held bow is silent. Defensible
+physics, indefensible playability.
+
+- [x] The runaway itself is closed -- it was DC, not the friction model. See
+      *DC in the loop*.
+- [ ] Acceptance: at constant bow force and speed the string reaches a steady
+      amplitude and holds it. `PassivityTests.cpp` can only assert "does not
+      run away" until the junction can see the string.
 - [ ] `BowedExciter`'s Newton solve moves into the friction junction.
 - [ ] Elasto-plastic friction state, tried against attack reliability.
 - [ ] Warm-start state cleared on trigger and release -- this shipped broken

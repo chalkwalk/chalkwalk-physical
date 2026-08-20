@@ -53,29 +53,41 @@ TEST_CASE("the pitch detector reads a synthetic sine correctly",
 }
 
 // ---------------------------------------------------------------------------
-// Tuning. This is what the Thiran all-pass is FOR: without sub-sample delay
+// Tuning. This is what the fractional delay is FOR: without sub-sample delay
 // the pitch would quantise to sampleRate/N and be badly sharp or flat.
 // ---------------------------------------------------------------------------
 // SWEEP EVERY SEMITONE, not the octaves.
 //
 // An octave-only sweep is nearly useless here, and finding that out cost a
-// deliberate sabotage: with the Thiran all-pass disabled entirely -- integer
+// deliberate sabotage: with the fractional delay disabled entirely -- integer
 // delay only -- an A1/A2/A3/A4 sweep still passed, because at 48 kHz those
 // four pitches happen to land on fractional delays close to a whole sample.
-// The residual error is (1 - D), so a test only has teeth if it visits values
-// of D across the whole [0.5, 1.5) range, which a chromatic sweep does and
-// four octaves do not.
+// A test only has teeth if it visits fractional delays across the whole
+// one-sample interval, which a chromatic sweep does and four octaves do not.
 TEST_CASE("a plucked string sounds the pitch it was asked for", "[waveguide]") {
-  // A1 to A4: the range a string model is actually played in.
-  // Measured worst case over the chromatic sweep at 48 kHz, 2026-08-18:
-  // +5.06 cents at G4 (391.995 Hz). That is at the edge of audible for a
-  // sustained tone, and it is NOT the intended accuracy -- see the
-  // characterisation test below. 7 is a regression guard against it getting
-  // worse, not a statement that 5 cents is fine.
+  // A1 to A7 -- the whole range, in one sweep, because the defect this used
+  // to be split around is gone.
+  //
+  // It used to be two tests. The top two octaves were a separate
+  // CHARACTERISATION test holding a known defect at arm's length: a
+  // first-order Thiran all-pass whose phase delay drifted with frequency, so
+  // that the harmonic series stretched and this detector -- autocorrelation,
+  // which reads the period of the WHOLE waveform -- was dragged off the
+  // fundamental. It measured -19.3 to +43.0 cents over A5-A7, close to a
+  // quarter tone, and +5.1 cents at G4 down here.
+  //
+  // A fifth-order Lagrange fractional delay closed both. Measured over the
+  // same chromatic sweeps at 48 kHz:
+  //
+  //     A1-A4:  +5.06 cents at G4       ->  -0.21 cents at F#4
+  //     A5-A7:  +43.0 cents at Eb7      ->  +0.89 cents at G7
+  //
+  // The bound below is 2 cents for the whole range, set from what it
+  // measures rather than from what would be tolerable.
   float worst = 0.0f;
   float worstAt = 0.0f;
 
-  for (int semitone = 0; semitone <= 36; ++semitone) {
+  for (int semitone = 0; semitone <= 72; ++semitone) {
     const float target = 55.0f * std::pow(2.0f, float(semitone) / 12.0f);
     auto wg = makeString(target);
     const auto out = pluck(wg, 24000);
@@ -89,53 +101,10 @@ TEST_CASE("a plucked string sounds the pitch it was asked for", "[waveguide]") {
 
     INFO("target " << target << " Hz, measured " << measured
                    << " Hz, error " << error << " cents");
-    REQUIRE(std::fabs(error) < 7.0f);
+    REQUIRE(std::fabs(error) < 2.0f);
   }
   INFO("worst over the sweep: " << worst << " cents at " << worstAt << " Hz");
-  CHECK(std::fabs(worst) < 7.0f);
-}
-
-// KNOWN DEFECT, characterised rather than asserted away.
-//
-// The loop uses a FIRST-ORDER Thiran all-pass for its fractional delay. Its
-// phase delay is accurate near DC and drifts as the loop shortens, so the
-// tuning error grows with pitch. Its SIGN depends on where the fractional
-// part D lands in [0.5, 1.5), so it is not a monotone sharpening -- which is
-// why an octaves-only test missed it entirely.
-//
-// Measured over CHROMATIC sweeps at 48 kHz, 2026-08-18:
-//     A1-A4 (55-440 Hz):    worst  +5.1 cents at G4
-//     A5-A7 (880-3520 Hz):  range -19.3 to +43.0 cents
-//
-// Forty-three cents is close to a quarter tone. The top two octaves of this
-// instrument are not in tune with anything, including themselves.
-//
-// The fix is a higher-order fractional-delay filter -- Thiran order 2-3, or
-// Lagrange interpolation -- and it belongs on the roadmap, not in this test.
-// The bounds below catch it getting worse, and the final CHECK fails if it
-// gets FIXED, which is the signal to delete this test and tighten the sweep
-// above.
-TEST_CASE("high notes are audibly mistuned: first-order Thiran runs out",
-          "[waveguide][characterisation]") {
-  float worst = 0.0f;
-  float worstAt = 0.0f;
-
-  for (int semitone = 0; semitone <= 24; ++semitone) {
-    const float target = 880.0f * std::pow(2.0f, float(semitone) / 12.0f);
-    auto wg = makeString(target);
-    const auto out = pluck(wg, 24000);
-    const float measured = estimatePitchHz(out, kFs, 2400, out.size());
-    const float error = centsBetween(target, measured);
-    if (std::fabs(error) > std::fabs(worst)) { worst = error; worstAt = target; }
-    INFO("target " << target << " Hz, measured " << measured
-                   << " Hz, error " << error << " cents");
-    REQUIRE(std::fabs(error) < 60.0f);  // if this fails, it got WORSE
-  }
-
-  INFO("worst over A5-A7: " << worst << " cents at " << worstAt << " Hz");
-  // If this fails, the tuning got FIXED -- delete this test and tighten the
-  // sweep above.
-  CHECK(std::fabs(worst) > 5.0f);
+  CHECK(std::fabs(worst) < 2.0f);
 }
 
 // The loop LPF adds group delay that lengthens the effective loop and flattens
@@ -369,15 +338,46 @@ TEST_CASE("a zero or negative pitch falls back to A440 rather than dividing by z
 }
 
 // ---------------------------------------------------------------------------
+// DC. A real string has no zero-frequency mode; a delay loop with feedback
+// does, and it is the loudest thing in the instrument if anything ever feeds
+// it. See PassivityTests.cpp: the bowed exciter feeds it a near-constant
+// force, and 99.9996% of a bowed note's energy was DC riding a ramp.
+//
+// A loop of gain g has a DC gain of 1/(1 - g), which at g = 0.999 is a
+// thousand. Nothing needs to go wrong for that to be catastrophic; a drive
+// with any offset at all is enough.
+// ---------------------------------------------------------------------------
+TEST_CASE("a constant force does not charge up the loop", "[waveguide][dc]") {
+  auto wg = makeString(220.0f);
+
+  const size_t n = size_t(2.0 * kFs);
+  std::vector<float> exc(n, 0.001f);  // a small, utterly steady push
+  std::vector<float> l(n, 0.0f), r(n, 0.0f);
+  wg.renderReplace(exc.data(), int(n), l.data(), r.data());
+
+  REQUIRE(allFinite(l));
+
+  // Mean of the last half second. Undefended, this settles near
+  // 0.001 / (1 - 0.999) = 1.0 -- a thousand times the drive.
+  double mean = 0.0;
+  const size_t from = n - size_t(0.5 * kFs);
+  for (size_t i = from; i < n; ++i) mean += double(l[i]);
+  mean /= double(n - from);
+
+  INFO("steady-state offset " << mean << " for a drive of 0.001");
+  CHECK(std::fabs(mean) < 0.01);
+}
+
+// ---------------------------------------------------------------------------
 // The fractional delay, tested directly rather than through worst-case error.
 //
 // A loop of integer length N can only sound sampleRate/N, so without a working
 // fractional delay the pitch is a STAIRCASE: a range of requested frequencies
-// all land on the same N and come out identical. The Thiran all-pass exists to
-// fill in between those steps, and this is the only test here that actually
-// distinguishes it from a plain integer delay -- the error-bound tests above
-// do not, because disabling the all-pass entirely costs only about a cent in
-// the A1-A4 range.
+// all land on the same N and come out identical. The fractional delay exists
+// to fill in between those steps, and this is the only test here that
+// actually distinguishes it from a plain integer delay -- the error-bound
+// tests above do not, because disabling the interpolator entirely costs only
+// about a cent in the A1-A4 range.
 //
 // Sweeping 1000-1030 Hz at 48 kHz spans loop lengths 48.0 down to 46.6, so an
 // integer-only loop would produce at most two distinct pitches across the whole

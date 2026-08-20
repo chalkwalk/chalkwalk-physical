@@ -20,12 +20,15 @@
 //   Autocorrelation finds the period of the WHOLE waveform, so stretched
 //   partials pull it.
 //
-// Measuring the partials directly settles it. At 220 Hz they sit within 0.4
-// cents of a harmonic series; at 2489 Hz the eighth partial is 21.4 cents
-// sharp. The string really is, in the roadmap's words, "not in tune with
-// anything, including itself" -- and that is INHARMONICITY from the
-// first-order Thiran's frequency-dependent phase delay, exactly as originally
-// diagnosed. See the inharmonicity test at the bottom.
+// Measuring the partials directly settled it. At 220 Hz they sat within 0.4
+// cents of a harmonic series; at 2489 Hz the eighth partial was 21.4 cents
+// sharp. The string really was, in the roadmap's words, "not in tune with
+// anything, including itself" -- INHARMONICITY from the first-order Thiran's
+// frequency-dependent phase delay, exactly as originally diagnosed.
+//
+// FIXED, by a fifth-order Lagrange fractional delay. What survives is a
+// near-Nyquist artefact that is not a tuning error at all, and there is a
+// test at the bottom that proves it by moving Nyquist.
 //
 // The SECOND defect is new, and was hidden underneath the first. The loop
 // filter's delay was being compensated with the GROUP delay formula where a
@@ -47,96 +50,24 @@
 
 #include <chalkwalk/physical/WaveguideResonator.h>
 
+#include "Spectrum.h"
+
 #include <cmath>
-#include <complex>
 #include <string>
 #include <vector>
 
 using namespace chalkwalk::physical;
+using namespace chalkwalk::test;
 
 namespace {
 
 constexpr double kFs = 48000.0;
 constexpr double kPi = 3.14159265358979323846;
 
-void fft(std::vector<std::complex<double>> &v) {
-  const std::size_t n = v.size();
-  for (std::size_t i = 1, j = 0; i < n; ++i) {
-    std::size_t bit = n >> 1;
-    for (; j & bit; bit >>= 1)
-      j ^= bit;
-    j ^= bit;
-    if (i < j)
-      std::swap(v[i], v[j]);
-  }
-  for (std::size_t len = 2; len <= n; len <<= 1) {
-    const double ang = -2.0 * kPi / static_cast<double>(len);
-    const std::complex<double> wl(std::cos(ang), std::sin(ang));
-    for (std::size_t i = 0; i < n; i += len) {
-      std::complex<double> w(1.0, 0.0);
-      for (std::size_t k = 0; k < len / 2; ++k) {
-        const auto u = v[i + k];
-        const auto t = v[i + k + len / 2] * w;
-        v[i + k] = u + t;
-        v[i + k + len / 2] = u - t;
-        w *= wl;
-      }
-    }
-  }
-}
-
-// A SECOND opinion, deliberately not the autocorrelation detector in Signal.h.
-// The point of this file is that one instrument measured twice disagreed, so
-// it does not reuse the instrument that was wrong.
-double peakNear(const std::vector<float> &x, double expect, double window) {
-  constexpr int order = 16;
-  const std::size_t n = std::size_t{1} << order;
-  std::vector<std::complex<double>> buf(n, {0.0, 0.0});
-  const std::size_t m = std::min(n, x.size());
-  for (std::size_t i = 0; i + 1 < m; ++i) {
-    const double w = 0.5 - 0.5 * std::cos(2.0 * kPi * static_cast<double>(i) /
-                                          static_cast<double>(m - 1));
-    buf[i] = {static_cast<double>(x[i]) * w, 0.0};
-  }
-  fft(buf);
-
-  const double binHz = kFs / static_cast<double>(n);
-  const int lo = std::max(1, static_cast<int>(std::floor(expect * (1.0 - window) / binHz)));
-  const int hi = std::min(static_cast<int>(n) / 2 - 2,
-                          static_cast<int>(std::ceil(expect * (1.0 + window) / binHz)));
-  if (lo >= hi)
-    return 0.0;
-  int best = lo;
-  double bestMag = 0.0;
-  for (int b = lo; b <= hi; ++b) {
-    const double mag = std::abs(buf[static_cast<std::size_t>(b)]);
-    if (mag > bestMag) {
-      bestMag = mag;
-      best = b;
-    }
-  }
-  // Parabolic interpolation across the peak, so the answer is not quantised to
-  // the bin width -- which at this size is 0.73 Hz and would swamp a few cents.
-  const double a = std::abs(buf[static_cast<std::size_t>(best) - 1]);
-  const double b0 = std::abs(buf[static_cast<std::size_t>(best)]);
-  const double c = std::abs(buf[static_cast<std::size_t>(best) + 1]);
-  const double denom = a - 2.0 * b0 + c;
-  const double delta = denom != 0.0 ? 0.5 * (a - c) / denom : 0.0;
-  return (static_cast<double>(best) + delta) * binHz;
-}
-
-// The fundamental: a wide window, because the whole question is how far the
-// note has moved.
-double fundamentalHz(const std::vector<float> &x, double expect) {
-  return peakNear(x, expect, 0.25);
-}
-
-// A named partial: a NARROW window, because partial k-1 and k+1 are only
-// 1/k away and a wide search will happily lock onto one of them. Getting this
-// wrong reported the fourth partial of a 220 Hz string as 498 cents flat.
-double partialHz(const std::vector<float> &x, double expect) {
-  return peakNear(x, expect, 0.08);
-}
+// The spectral instrument lives in Spectrum.h, calibrated there against
+// synthetic signals. This file was where it was written; it is shared now
+// because the fractional-delay work reads partials too, and two copies of a
+// measurement is how a suite starts disagreeing with itself.
 
 double centsErrorAt(int midi, float damping) {
   const double target = 440.0 * std::pow(2.0, (midi - 69) / 12.0);
@@ -156,7 +87,7 @@ double centsErrorAt(int midi, float damping) {
   std::vector<float> r(static_cast<std::size_t>(n), 0.0f);
   wg.renderReplace(exc.data(), n, l.data(), r.data());
 
-  return 1200.0 * std::log2(fundamentalHz(l, target) / target);
+  return centsBetweenHz(target, fundamentalHz(l, kFs, target));
 }
 
 double worstOver(int loMidi, int hiMidi, float damping) {
@@ -175,7 +106,7 @@ TEST_CASE("the playing range stays in tune at every damping", "[tuning]") {
   for (float damping : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
     const double worst = worstOver(33, 81, damping);
     INFO("damping " << damping << ", worst " << worst << " cents");
-    CHECK(worst < 3.0);
+    CHECK(worst < 1.5);  // measures 1.12 at the worst damping
   }
 }
 
@@ -183,6 +114,11 @@ TEST_CASE("damping does not detune the string", "[tuning]") {
   // The property the compensation exists for, stated directly: turning the
   // damping up must not move the pitch. With the group-delay formula this
   // moved by over two semitones at the top of the range.
+  //
+  // The bound is still 65 cents, and that is not slack: at A7 and damping 1.0
+  // it measures 56.5. See "the top two octaves are usable" for what that
+  // residual is -- a resonance peak dragged by a steep loop gain, not a mode
+  // in the wrong place.
   for (int midi : {45, 69, 93, 105}) {
     const double dry = centsErrorAt(midi, 0.0f);
     for (float damping : {0.25f, 0.5f, 0.75f, 1.0f}) {
@@ -194,15 +130,27 @@ TEST_CASE("damping does not detune the string", "[tuning]") {
 }
 
 TEST_CASE("the top two octaves are usable", "[tuning]") {
-  // Looser than the playing range, and deliberately so. What remains up here
-  // at heavy damping is the first-order Thiran's own phase-delay error, which
-  // is a real and separate problem -- see the roadmap. The bound is set from
-  // what it actually measures, so tightening the fractional delay will make
-  // this test fail by design.
+  // Looser than the playing range at the heaviest damping, and the reason has
+  // changed. It used to be the first-order Thiran's phase-delay error; that
+  // is gone, and these three now measure about a tenth of what they did.
+  //
+  // What is left at damping 1.0 -- 62.5 cents at A7 -- is NOT a tuning error,
+  // and saying so cost two wrong explanations. Modelling the loop directly
+  // puts the phase condition at 3519.996 Hz for a nominal 3520: the mode is
+  // exactly where it was asked to be. What moves is the PEAK. At loopAlpha_
+  // 0.8 a thirteen-sample loop has a broad resonance on a steeply falling
+  // loop gain, so the spectral maximum is dragged below the mode -- and this
+  // detector reads maxima. At A4, same damping, it is 0.10 cents, because the
+  // loop is eight times longer and the resonance eight times narrower.
+  //
+  // A damped resonator's peak genuinely does sit below its undamped
+  // frequency, so some of this is right. The rest is the one-pole being a
+  // crude model of material damping, which is a body-vocabulary problem and
+  // not a tuning one.
   for (float damping : {0.0f, 0.25f, 0.5f}) {
     const double worst = worstOver(84, 105, damping);
     INFO("damping " << damping << ", worst " << worst << " cents");
-    CHECK(worst < 5.0);
+    CHECK(worst < 2.0);  // measures 1.06 at damping 0.5
   }
   const double heavy = worstOver(84, 105, 1.0f);
   INFO("heaviest damping, worst " << heavy << " cents");
@@ -216,10 +164,10 @@ TEST_CASE("the top two octaves are usable", "[tuning]") {
 
 namespace {
 
-// How far the k-th partial sits from k times the fundamental.
-double partialStretchCents(double target, int k) {
+// A plucked string, rendered long enough to resolve partials.
+std::vector<float> pluck(double target, double sampleRate) {
   WaveguideResonator wg;
-  wg.prepare(kFs, 512);
+  wg.prepare(sampleRate, 512);
   wg.setDamping(0.0f);
   wg.setPitchHz(static_cast<float>(target));
 
@@ -229,46 +177,74 @@ double partialStretchCents(double target, int k) {
   std::vector<float> l(static_cast<std::size_t>(n), 0.0f);
   std::vector<float> r(static_cast<std::size_t>(n), 0.0f);
   wg.renderReplace(exc.data(), n, l.data(), r.data());
-
-  const double f0 = fundamentalHz(l, target);
-  const double want = f0 * k;
-  if (want > 0.45 * kFs)
-    return 0.0;
-  const double got = partialHz(l, want);
-  return got > 0.0 ? 1200.0 * std::log2(got / want) : 0.0;
+  return l;
 }
+
+// How far the k-th partial of a plucked string sits from k times its
+// fundamental. The measurement itself is Spectrum.h's, calibrated there.
+double stretchAtRate(double target, int k, double sampleRate) {
+  return partialStretchCents(pluck(target, sampleRate), sampleRate, target, k);
+}
+
+double stretchAt(double target, int k) { return stretchAtRate(target, k, kFs); }
 
 }  // namespace
 
 TEST_CASE("low notes have a harmonic series", "[tuning]") {
   // Where the instrument is mostly played, the partials really are harmonic.
   for (int k = 2; k <= 8; ++k) {
-    const double cents = partialStretchCents(220.0, k);
+    const double cents = stretchAt(220.0, k);
     INFO("partial " << k << " of 220 Hz: " << cents << " cents");
     CHECK(std::abs(cents) < 1.5);
   }
 }
 
-TEST_CASE("high notes are inharmonic, characterised not asserted away",
-          "[tuning][characterisation]") {
-  // KNOWN DEFECT. A first-order Thiran all-pass has a phase delay that is
-  // accurate near DC and drifts upward with frequency, so it does not delay
-  // the partials by the same fraction of a period. The loop therefore tunes
-  // each partial slightly differently and the series stretches.
-  //
-  // Measured at 2489 Hz, damping 0: k=2 +1.8, k=4 +7.9, k=6 +15.1, k=8 +21.4
-  // cents. The fundamental is fine; it is the series that is wrong, which is
-  // why an FFT peak at f0 says the note is in tune and the ear does not agree.
-  //
-  // The fix is a higher-order fractional delay -- Thiran 2-3 or Lagrange --
-  // and it belongs on the roadmap rather than in this test. The upper bound
-  // catches it getting worse; the lower bound FAILS when it gets fixed, which
-  // is the signal to delete this test and tighten the one above.
-  double worst = 0.0;
-  for (int k = 2; k <= 8; ++k)
-    worst = std::max(worst, std::abs(partialStretchCents(2489.0, k)));
+TEST_CASE("the harmonic series is harmonic across the range", "[tuning]") {
+  // Partials below 12 kHz, over four octaves of fundamental. This replaces a
+  // characterisation test that held a known defect at arm's length: with a
+  // first-order Thiran all-pass the eighth partial of a 2489 Hz string sat
+  // 21.4 cents sharp, and a 220 Hz string was already within 0.4 cents, so
+  // the series was wrong in a way that got worse with pitch. A fifth-order
+  // Lagrange fractional delay closed it -- see the near-Nyquist test below
+  // for the part that is NOT closed, and why it cannot be.
+  for (double f0 : {220.0, 440.0, 880.0, 1760.0, 2489.0}) {
+    for (int k = 2; k <= 8; ++k) {
+      if (f0 * k > 12000.0)
+        break;
+      const double cents = stretchAt(f0, k);
+      INFO("partial " << k << " of " << f0 << " Hz (" << (f0 * k / 1000.0)
+                      << " kHz): " << cents << " cents");
+      CHECK(std::abs(cents) < 2.0);
+    }
+  }
+}
 
-  INFO("worst partial stretch at 2489 Hz: " << worst << " cents");
-  CHECK(worst < 30.0);   // if this fails, it got WORSE
-  CHECK(worst > 10.0);   // if this fails, it got FIXED -- delete this test
+TEST_CASE("what stretch remains is a Nyquist limit, not a tuning error",
+          "[tuning]") {
+  // RECORDED, BECAUSE IT LOOKS LIKE A DEFECT AND IS NOT.
+  //
+  // At 48 kHz the eighth partial of a 2489 Hz string sits at 19.9 kHz, which
+  // is 0.83 of Nyquist, and it stays several cents sharp however good the
+  // fractional delay is. Raising the interpolator order barely moves it:
+  // about 10 cents at order 5, 8 at order 9, 4 at order 19 -- twenty taps in
+  // a nineteen-sample loop, which is not a delay line any more.
+  //
+  // The reason it cannot be chased is that it is not a property of the
+  // partial. It is a property of the partial's distance from Nyquist, and the
+  // test for that is to move Nyquist. THE SAME PARTIAL OF THE SAME NOTE, at
+  // 96 kHz, is harmonic -- which is the whole claim, so it is asserted rather
+  // than described.
+  //
+  // Everything below 12 kHz at 48 kHz is covered by the test above; this is
+  // the boundary of that claim, stated where someone will find it.
+  const double f0 = 2489.0;
+  const int k = 8;
+
+  const double at48 = stretchAt(f0, k);
+  const double at96 = stretchAtRate(f0, k, 96000.0);
+  INFO("partial " << k << " of " << f0 << " Hz = " << (f0 * k / 1000.0)
+                  << " kHz: " << at48 << " cents at 48 kHz, " << at96
+                  << " cents at 96 kHz");
+  CHECK(std::abs(at48) > 2.0);   // the artefact is present at 48 kHz
+  CHECK(std::abs(at96) < 1.0);   // and gone when Nyquist moves
 }

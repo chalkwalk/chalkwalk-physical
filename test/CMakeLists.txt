@@ -17,7 +17,8 @@ add_executable(chalkwalk_physical_tests
     TranslationMatrixTests.cpp
     TuningTests.cpp
     SpectrumTests.cpp
-    WavTests.cpp)
+    WavTests.cpp
+    PassivityTests.cpp)
 
 target_link_libraries(chalkwalk_physical_tests
     PRIVATE chalkwalk::physical Catch2::Catch2WithMain)
