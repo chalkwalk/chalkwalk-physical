@@ -172,3 +172,42 @@ TEST_CASE("reset clears a burst in progress", "[struck]") {
   const auto out = render(ex, s, 4096);
   REQUIRE(peakAbs(out) == 0.0f);
 }
+
+TEST_CASE("a stolen voice does not replay the identical noise burst",
+          "[struck]") {
+  // The burst is noise from a running xorshift, so two strikes that each get
+  // rendered already differ -- rendering advances the state. What does NOT
+  // differ without help is a strike whose burst was never rendered: steal a
+  // voice the instant after it is triggered and the replacement starts from
+  // exactly the state the stolen one did, replaying a byte-identical burst.
+  //
+  // Advancing the seed on every trigger closes that, and this is the case
+  // that can tell the difference. Asserting merely that two RENDERED strikes
+  // differ proves nothing -- they differ either way, which is how the first
+  // version of this test came to pass with the fix removed.
+  //
+  // Regression: the extraction into chalkwalk-physical came from a checkout
+  // predating the fix, so the library shipped without it.
+  const auto s = strike(1.0f, 0.5f);
+
+  StruckExciter stolen;
+  stolen.prepare(kFs, 512);
+  stolen.trigger(s);  // note arrives
+  stolen.trigger(s);  // ... and is immediately stolen by another
+  const auto afterSteal = render(stolen, s, 2048);
+
+  StruckExciter fresh;
+  fresh.prepare(kFs, 512);
+  fresh.trigger(s);
+  const auto firstEver = render(fresh, s, 2048);
+
+  REQUIRE(peakAbs(afterSteal) > 0.0f);
+  REQUIRE(afterSteal != firstEver);
+
+  // Still deterministic: same exciter, same sequence, same samples.
+  StruckExciter again;
+  again.prepare(kFs, 512);
+  again.trigger(s);
+  again.trigger(s);
+  REQUIRE(render(again, s, 2048) == afterSteal);
+}

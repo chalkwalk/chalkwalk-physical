@@ -24,10 +24,22 @@ void BowedExciter::trigger(const PhysicalState& state) {
   gate_   = true;
   prevFn_ = state.Fn;
   fPrev_  = state.Fn * kMuS;  // assume stick phase at note-on
+
+  // vHat_ is the junction velocity fed back from the resonator. Clearing it
+  // here stops a fast re-trigger warm-starting the Newton solve from the
+  // velocity the PREVIOUS note ended on: the solver converges to a different
+  // root, so the same gesture gives a different attack depending on what
+  // happened before it.
+  vHat_ = 0.0f;
 }
 
 void BowedExciter::release() {
   gate_ = false;
+
+  // Same reasoning for the force warm-start: the next trigger sets fPrev_
+  // from its own Fn, but anything reading it between release and trigger
+  // would otherwise see the force at the moment the bow left the string.
+  fPrev_ = 0.0f;
 }
 
 void BowedExciter::renderAdd(float* out, int numSamples,

@@ -43,6 +43,16 @@ void StruckExciter::trigger(const PhysicalState& state) {
   burstPos_       = 0;
   burstAmplitude_ = state.Fe;
 
+  // Advance the RNG seed by a fixed stride so repeated strikes at the SAME
+  // pitch produce distinct -- but still deterministic -- noise bursts. Without
+  // this, a retriggered note replays a byte-identical burst, which is audible
+  // as a machine-gun sameness that a struck string does not have.
+  //
+  // The stride is the golden-ratio odd constant, so successive seeds cannot
+  // fall into a short cycle: an odd increment has full period over the 32-bit
+  // state.
+  rngState_ += 0x9e3779b9u;
+
   const float cutoffHz = kCutoffSoftHz + he * (kCutoffHardHz - kCutoffSoftHz);
   computeLpf(cutoffHz);
 }

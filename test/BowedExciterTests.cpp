@@ -170,3 +170,45 @@ TEST_CASE("reset returns the bow to its rest state", "[bowed]") {
   // reset() clears the gate, so nothing sounds until the next trigger.
   REQUIRE(peakAbs(renderBlocks(ex, bowState(1.0f), 32, 512)) == 0.0f);
 }
+
+TEST_CASE("a re-trigger does not inherit the last note's junction velocity",
+          "[bowed]") {
+  // vHat_ is the junction velocity fed back from the resonator. The Newton
+  // solve is warm-started, so a trigger that leaves a stale vHat_ in place
+  // starts from the velocity the PREVIOUS note ended on and converges
+  // elsewhere -- the same gesture then gives a different attack depending on
+  // what happened before it, which is the one thing an attack must not do.
+  //
+  // Auto mode, because the exciter has to be SOUNDING for this to be
+  // observable at all: in the default mode with no gesture it renders
+  // silence, and two silent buffers agree no matter what the solver did.
+  //
+  // Regression: extracted into chalkwalk-physical from a checkout that
+  // predated the fix in its origin project.
+  const auto attackAfter = [](float staleVelocity) {
+    BowedExciter ex;
+    ex.prepare(kFs, 512);
+    ex.setBowMode(2);  // Auto: sounds without a gesture
+
+    PhysicalState s;
+    s.Fn = 0.5f;
+    s.gate = true;
+
+    // Play a note, leave a junction velocity behind, and release.
+    ex.trigger(s);
+    ex.setJunctionVelocity(staleVelocity);
+    std::vector<float> scratch(512, 0.0f);
+    ex.renderAdd(scratch.data(), 512, s);
+    ex.release();
+
+    // The next note's attack must not depend on that.
+    ex.trigger(s);
+    std::vector<float> out(512, 0.0f);
+    ex.renderAdd(out.data(), 512, s);
+    return out;
+  };
+
+  const auto clean = attackAfter(0.0f);
+  REQUIRE(peakAbs(clean) > 0.0f);  // the test would be vacuous on silence
+  REQUIRE(attackAfter(0.4f) == clean);
+}
