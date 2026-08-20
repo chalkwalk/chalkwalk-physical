@@ -1,6 +1,8 @@
 #include <chalkwalk/physical/WaveguideResonator.h>
 
 #include <algorithm>
+#include <chalkwalk/physical/Constants.h>
+
 #include <cmath>
 
 namespace chalkwalk::physical {
@@ -150,7 +152,7 @@ void WaveguideResonator::retune() {
   // The residual at the very top with heavy damping is the FIRST-ORDER Thiran's
   // own phase-delay error, which is a separate and much smaller problem -- and
   // one that was invisible underneath this.
-  const float omega0    = 2.0f * 3.14159265f * pitchHz_ / static_cast<float>(sampleRate_);
+  const float omega0    = 2.0f * kPi * pitchHz_ / static_cast<float>(sampleRate_);
   const float a         = loopAlpha_;
   const float lpfDelay  = (omega0 > 1e-6f)
       ? std::atan2(a * std::sin(omega0), 1.0f - a * std::cos(omega0)) / omega0

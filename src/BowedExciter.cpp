@@ -1,5 +1,7 @@
 #include <chalkwalk/physical/BowedExciter.h>
 
+#include <chalkwalk/physical/Constants.h>
+
 #include <algorithm>
 #include <cmath>
 
@@ -83,7 +85,7 @@ void BowedExciter::updateBowVelocity(float currentFn, int numSamples) noexcept {
       // Auto mode: internal oscillator; Z only controls Fn.
       bowPhase_ += kAutoRateHz * dt;
       if (bowPhase_ >= 1.0f) bowPhase_ -= 1.0f;
-      vBow_ = std::sin(bowPhase_ * 6.28318530718f) * kAutoAmp;
+      vBow_ = std::sin(bowPhase_ * kTwoPi) * kAutoAmp;
       break;
     }
     case 2: {

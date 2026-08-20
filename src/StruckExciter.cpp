@@ -1,11 +1,12 @@
 #include <chalkwalk/physical/StruckExciter.h>
 
+#include <chalkwalk/physical/Constants.h>
+
 #include <cmath>
 
 namespace chalkwalk::physical {
 
 namespace {
-constexpr float kPi = 3.14159265358979f;
 
 // He=0: 20 ms soft mallet; He=1: 4 ms hard pick.
 constexpr float kDurationMaxMs = 20.0f;

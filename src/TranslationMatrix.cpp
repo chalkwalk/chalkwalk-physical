@@ -14,7 +14,10 @@ PhysicalState TranslationMatrix::onNoteOn(int /*midiNote*/, float velocity) cons
 }
 
 void TranslationMatrix::applyPitchBend(PhysicalState&, float) const {
-  // Real impl: route to waveguide delay length or modal injection X.
+  // Pitch bypasses the translation matrix by design: MPE pitch-bend arrives as
+  // a pre-computed Hz value -- per-note bend combined with the master
+  // channel's -- and goes straight to Resonator::setPitchHz. This exists to
+  // satisfy the declared interface and is never called by a voice layer.
 }
 
 void TranslationMatrix::applyTimbre(PhysicalState& state, float y01) const {

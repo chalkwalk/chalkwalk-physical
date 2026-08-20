@@ -7,8 +7,7 @@ namespace chalkwalk::physical {
 void ModalResonator::prepare(double, int) { reset(); }
 
 void ModalResonator::reset() {
-  lpStateL_ = 0.0f;
-  lpStateR_ = 0.0f;
+  lpState_ = 0.0f;
 }
 
 void ModalResonator::setDamping(float d) {
@@ -18,12 +17,17 @@ void ModalResonator::setDamping(float d) {
 void ModalResonator::renderReplace(const float* excitation,
                                    int numSamples, float* outL,
                                    float* outR) {
+  // Skeleton: one single-pole low-pass feeding both channels identically. The
+  // modal bank (Phase 5) replaces this with a parallel biquad array, and the
+  // per-mode state lands where lpState_ is.
+  //
+  // One state rather than two: the pair here were fed the same input with the
+  // same coefficient, so they held the same number for ever and the second
+  // filter was arithmetic performed to reach a foregone conclusion.
   for (int i = 0; i < numSamples; ++i) {
-    const float in = excitation[i];
-    lpStateL_ += lpAlpha_ * (in - lpStateL_);
-    lpStateR_ += lpAlpha_ * (in - lpStateR_);
-    outL[i] = lpStateL_;
-    outR[i] = lpStateR_;
+    lpState_ += lpAlpha_ * (excitation[i] - lpState_);
+    outL[i] = lpState_;
+    outR[i] = lpState_;
   }
 }
 

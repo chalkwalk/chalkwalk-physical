@@ -27,8 +27,7 @@ class ModalResonator : public Resonator {
                      float* outL, float* outR) override;
 
  private:
-  float lpStateL_ = 0.0f;
-  float lpStateR_ = 0.0f;
+  float lpState_ = 0.0f;  // shared L/R; per-mode state lands here in Phase 5
   float lpAlpha_ = 0.3f;
 };
 

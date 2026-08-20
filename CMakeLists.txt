@@ -32,7 +32,14 @@ if(MSVC)
     target_compile_options(chalkwalk_physical PRIVATE /W4)
 else()
     target_compile_options(chalkwalk_physical PRIVATE
-        -Wall -Wextra -Wpedantic -Wshadow -Wimplicit-fallthrough)
+        -Wall -Wextra -Wpedantic -Wshadow -Wimplicit-fallthrough
+        # Adopted from Anvil, which had been building its own copy of this
+        # code under them. PRIVATE, so they apply to this library's sources
+        # and not to Catch2's -- which is where every warning came from when
+        # they were first switched on. Physical models are arithmetic over
+        # float and int32 indices, so a silent sign or precision conversion is
+        # exactly the class of mistake worth being told about.
+        -Wsign-conversion -Wfloat-conversion)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
