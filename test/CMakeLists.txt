@@ -15,7 +15,9 @@ add_executable(chalkwalk_physical_tests
     ModalResonatorTests.cpp
     GeometryTests.cpp
     TranslationMatrixTests.cpp
-    TuningTests.cpp)
+    TuningTests.cpp
+    SpectrumTests.cpp
+    WavTests.cpp)
 
 target_link_libraries(chalkwalk_physical_tests
     PRIVATE chalkwalk::physical Catch2::Catch2WithMain)
@@ -28,3 +30,17 @@ else()
 endif()
 
 add_test(NAME chalkwalk_physical COMMAND chalkwalk_physical_tests)
+
+# The audition bench. Built alongside the tests so it cannot rot, and
+# deliberately NOT registered with ctest: nothing automated depends on a WAV.
+# Run it by hand when a change makes an audible claim.
+add_executable(chalkwalk_physical_audition Audition.cpp)
+target_link_libraries(chalkwalk_physical_audition PRIVATE chalkwalk::physical)
+target_include_directories(chalkwalk_physical_audition
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+if(MSVC)
+    target_compile_options(chalkwalk_physical_audition PRIVATE /W4)
+else()
+    target_compile_options(chalkwalk_physical_audition
+        PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
+endif()

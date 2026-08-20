@@ -1,17 +1,17 @@
 #pragma once
 
-// Measurement helpers for the Anvil tests.
+// Measurement helpers for this library's tests.
 //
 // PRINCIPLES: when a test fails, suspect the measurement first. Every function
 // here is deliberately simple enough to reason about, and the pitch detector is
-// cross-checked against a synthetic sine in TestWaveguideResonator.cpp before
+// cross-checked against a synthetic sine in WaveguideResonatorTests.cpp before
 // it is trusted on a resonator's output.
 
 #include <cmath>
 #include <cstddef>
 #include <vector>
 
-namespace anviltest {
+namespace chalkwalk::test {
 
 inline bool allFinite(const std::vector<float>& x) {
   for (float v : x)
@@ -137,4 +137,4 @@ inline size_t lastAbove(const std::vector<float>& x, float threshold) {
   return 0;
 }
 
-}  // namespace anviltest
+}  // namespace chalkwalk::test

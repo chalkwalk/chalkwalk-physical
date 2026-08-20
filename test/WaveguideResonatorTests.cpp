@@ -8,7 +8,7 @@
 #include <vector>
 
 using namespace chalkwalk::physical;
-using namespace anviltest;
+using namespace chalkwalk::test;
 
 namespace {
 
