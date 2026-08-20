@@ -6,12 +6,17 @@ chalkwalk-physical **is**; `ROADMAP.md` tracks what it is becoming.
 Sections carry stable numbers and are cited as `DESIGN §N` from `ROADMAP.md`,
 from consumer repositories, and from source comments. Do not renumber casually.
 
-The consumers' own stances live with them: Anvil's `PRINCIPLES.md` and
-`NON-GOALS.md` in `mpe_phys/`, Lockstep's in `seq_play/`. This library serves
-those stances and does not restate them.
+Each consumer keeps its own stance -- its principles and its standing
+refusals -- with itself. This library serves those stances and does not restate
+them.
 
-Shared code across the Chalkwalk plugins is planned in
-[`../ECOSYSTEM.md`](../ECOSYSTEM.md). Do not restate that argument here.
+This library is shared. It is consumed by more than one application, and the
+boundary rules that follow from that -- JUCE-free, no files, no UI, no host
+concepts -- are stated in §18 and are not negotiable per consumer.
+
+Which code is shared across the wider Chalkwalk ecosystem, and the argument for
+each boundary, is settled in a planning document kept outside this repository.
+It is not restated here, and nothing in this file depends on having read it.
 
 ---
 
@@ -30,11 +35,11 @@ and bounded in cost.
 Three consumers, with different needs, and the differences are the design
 pressure that keeps the boundary clean:
 
-| Consumer | On disk | What it needs |
-|---|---|---|
-| **Anvil** | `mpe_phys/` | The whole graph. Anvil is an instrument builder; its Workbench authors assemblies and its user reaches every part |
-| **Lockstep** | `seq_play/` | Fine-tuned assemblies, played from sequencer steps, with no per-note expression layer at all |
-| **Antiphon** | `antiphon/` | Not yet a consumer -- see §18 |
+| Consumer | What it needs |
+|---|---|
+| **Anvil** | The whole graph. Anvil is an instrument builder; its Workbench authors assemblies and its user reaches every part |
+| **Lockstep** | Fine-tuned assemblies, played from sequencer steps, with no per-note expression layer at all |
+| **Antiphon** | Not yet a consumer -- see §18 |
 
 Lockstep matters out of proportion to its share of the work: it is the consumer
 that has **no MPE**, and so it is the one that stops MPE-shaped assumptions
@@ -538,8 +543,10 @@ Anvil consumes the graph directly: its Workbench is an assembly editor, and its
 user reaches every part. Lockstep consumes assemblies and never sees a port.
 
 Same code underneath, which is the point. A fine-tuned special case built on
-the general model cannot drift from it the way Antiphon's `PluckedString`
-drifted from Anvil's (`../ECOSYSTEM.md`).
+the general model cannot drift from it the way two hand-maintained copies of
+"the same" plucked string did, in two of this ecosystem's applications: they
+solved the fractional-delay problem differently, and one of the two solutions
+had a bug the other did not.
 
 ### 11.4 A worked example: the snare
 
@@ -617,9 +624,10 @@ handover (§13), smooth promotion and demotion in ranks (§10.1), click-free
 retuning under pitch tracking (§3.4), and prepare-time flattening (§11.1) all
 exist so that editing is a performance gesture rather than an interruption.
 
-Lockstep holds the same stance for the sequencer (`seq_play/PRINCIPLES.md` §3:
-there is no design mode versus performance mode). It is an ecosystem position,
-not a one-off.
+Lockstep holds the same stance for the sequencer -- there is no design mode
+versus performance mode; the gestures that manipulate pre-authored material are
+the gestures that improvise new material. It is an ecosystem position, not a
+one-off.
 
 ---
 
@@ -689,7 +697,7 @@ assembly of parts.
 The space stage is the consumer's; this library provides placed outputs (§12.2)
 and stops.
 
-**Antiphon is not a consumer yet.** Its `PluckedString` and `ModalBank` remain
-a recorded divergence (`../ECOSYSTEM.md`), and its roadmap argues a sampled kit
-serves its band better than modelled percussion. Both positions may change; the
-interface is not shaped around either.
+**Antiphon is not a consumer yet.** It has its own `PluckedString` and
+`ModalBank`, deliberately left as a divergence, and its roadmap argues a
+sampled kit serves its band better than modelled percussion. Both positions may
+change; the interface is not shaped around either.

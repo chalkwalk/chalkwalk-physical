@@ -12,10 +12,12 @@ reference; the grouping headings are organisational only and are never cited.
 For architecture see `DESIGN.md`, whose sections carry stable numbers and are
 cited as `DESIGN §N`.
 
-**Shared code across the Chalkwalk plugins is planned in
-[`../ECOSYSTEM.md`](../ECOSYSTEM.md)** -- which libraries are extracted, which
-third-party dependencies are taken, the licence and JUCE-free rules. Do not
-restate that argument here; link to it.
+This library is consumed by more than one application. Where a work area below
+is a handoff -- something a consumer used to plan and now expects from here --
+it says so by name, so the two sides can be read against each other.
+
+The ecosystem-wide plan for what gets shared and why lives outside this
+repository, and is deliberately not a dependency of this one.
 
 ---
 
@@ -428,8 +430,9 @@ around either.
       stays, because it is the best evidence in the repo of how this library
       tests.
 - [ ] `DESIGN.md` section numbers stay stable. Add sections; do not renumber.
-- [ ] `../ECOSYSTEM.md` records this library's expanded remit and the two
-      committed consumers.
+- [ ] Consumers' own plans record what they now expect from here rather than
+      restating it. Anvil's does; Lockstep's will when its physical machine is
+      scheduled.
 
 ### Cross-platform CI
 
