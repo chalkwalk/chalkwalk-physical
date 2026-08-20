@@ -1,7 +1,12 @@
 # chalkwalk-physical
 
-Physical modelling: exciters, resonators, and the geometry that connects them.
+Physical modelling: bodies that ring, the things that put energy into them,
+and the couplings that let one body load another.
 JUCE-free, C++20, MIT.
+
+**[`DESIGN.md`](DESIGN.md)** is what this library is; **[`ROADMAP.md`](ROADMAP.md)**
+is what it is becoming. The table below is what exists *today*, which is a good
+deal smaller than either.
 
 | | |
 |---|---|
