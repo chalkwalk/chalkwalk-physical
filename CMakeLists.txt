@@ -4,7 +4,7 @@
 # `cmake -B build && ctest` works from this directory with nothing else on the
 # machine. That is not a convenience: a library that only builds inside its
 # parent has not actually been extracted, and the standalone build is the test
-# of the boundary. See ../../../ECOSYSTEM.md.
+# of the boundary.
 #
 # STRICTLY JUCE-FREE. A file is a host concern; this library must not learn
 # what one is.
