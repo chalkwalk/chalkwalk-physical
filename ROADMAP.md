@@ -558,6 +558,40 @@ around either.
       restating it. The builder's does; the sequencer's will when its physical
       machine is scheduled.
 
+### One measuring stick across the ecosystem
+
+*(2026-08-21)* `chalkwalk-dsp` grew a second target, `chalkwalk::dsp::measure`:
+peak, rms, crest, dB, brightness, pitch and integrated loudness, calibrated
+against synthetic signals with known answers and, for loudness, against
+ffmpeg's `ebur128`. It is deliberately separate from the header-only
+primitives, so linking it is a choice and a consumer that wants a filter does
+not build a loudness meter.
+
+This repository already made the argument locally, in *The audition bench*:
+detectors were "lifted out of `TuningTests.cpp` where they were private", on
+the grounds that an instrument nobody has calibrated cannot be believed. The
+same argument holds one level up, and the count says so -- across these
+repositories `peak` and `rms` existed three times over and `fundamentalHz`
+twice. Two pitch detectors is two answers to one question. One of them read
+294.7 Hz for a 440 Hz tone and the fix was carried all the way through before
+anyone suspected the instrument rather than the code under test.
+
+Not urgent, and deliberately not bundled with the substrate work. The risk is
+specific and worth naming: `test/Signal.h` and `test/Spectrum.h` have
+thresholds tuned against *themselves*, so swapping the instrument underneath an
+existing suite can turn a passing test red without anything being wrong with
+the library. That is a job that wants its own attention rather than a corner of
+another one.
+
+- [ ] Take `chalkwalk::dsp::measure` as a test-only dependency.
+- [ ] Retire `test/Signal.h`'s `peakAbs` and `rms` in favour of it, one file at
+      a time, re-reading each threshold rather than assuming it survives.
+- [ ] Reconcile `test/Spectrum.h`'s `fundamentalHz` with the shared one. If
+      they disagree, that disagreement is the finding -- record which is right
+      and why before deleting either.
+- [ ] Keep `peakNear` and the partial readers here if they stay specific to
+      stretched series; push them up if they do not.
+
 ### Cross-platform CI
 
 - [ ] Keep the standalone build the test of the boundary: no JUCE anywhere on
