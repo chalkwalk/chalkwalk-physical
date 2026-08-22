@@ -25,7 +25,7 @@ add_library(chalkwalk::physical ALIAS chalkwalk_physical)
 target_include_directories(chalkwalk_physical
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 
-target_compile_features(chalkwalk_physical PUBLIC cxx_std_20)
+target_compile_features(chalkwalk_physical PUBLIC cxx_std_17)
 set_target_properties(chalkwalk_physical PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(MSVC)
